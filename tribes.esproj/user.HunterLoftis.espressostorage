@@ -38,13 +38,49 @@
 			</dict>
 			<dict>
 				<key>DocumentURL</key>
-				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/box2d/common/b2Settings.js</string>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/css/game.css</string>
 				<key>StateType</key>
 				<string>DefaultTab</string>
 			</dict>
 			<dict>
 				<key>DocumentURL</key>
-				<string>file://localhost/Users/HunterLoftis/work/tribes/static/collect.sh</string>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/tribes.view.js</string>
+				<key>StateType</key>
+				<string>DefaultTab</string>
+			</dict>
+			<dict>
+				<key>DocumentURL</key>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/tribes.player.js</string>
+				<key>StateType</key>
+				<string>DefaultTab</string>
+			</dict>
+			<dict>
+				<key>DocumentURL</key>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/tribes.config.js</string>
+				<key>StateType</key>
+				<string>DefaultTab</string>
+			</dict>
+			<dict>
+				<key>DocumentURL</key>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/tribes.main.js</string>
+				<key>StateType</key>
+				<string>DefaultTab</string>
+			</dict>
+			<dict>
+				<key>DocumentURL</key>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/tribes.game.js</string>
+				<key>StateType</key>
+				<string>DefaultTab</string>
+			</dict>
+			<dict>
+				<key>DocumentURL</key>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/tribes.smartimage.js</string>
+				<key>StateType</key>
+				<string>DefaultTab</string>
+			</dict>
+			<dict>
+				<key>DocumentURL</key>
+				<string>file://localhost/Users/HunterLoftis/work/tribes/static/js/tribes.keyboard.js</string>
 				<key>StateType</key>
 				<string>DefaultTab</string>
 			</dict>
