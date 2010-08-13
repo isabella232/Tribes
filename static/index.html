@@ -1,0 +1,552 @@
+<html>
+    <head>
+        <title>Starsiege Tribes: 2D</title>
+        <style type="text/css">
+	        
+	        html, body {
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+			}
+			
+			body {
+				position: fixed;
+			}
+		
+        </style>	
+    </head>
+    <body>
+    
+		<canvas id="view" width="800" height="480"></canvas>
+
+		<!-- Socket.IO -->
+		<script src="/json.js"></script> <!-- for ie -->
+		<script src="/client/socket.io.js"></script>
+		
+		<!-- Box2D -->
+		<!--[if IE]><script type="text/javascript" src="lib/excanvas.js"></script><![endif]-->
+		<script src="lib/protoclass.js"></script>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+		<script src='box2d_complete.js'></script>
+		
+		<!-- This Game -->
+		<script>
+		
+			function Game() {
+				this.target_fps = 77;	// 80 seems to be the max Chrome can handle
+				this.frame = 0;
+				this.slice = 0;		// Current time slice
+				this.tick = 0;
+				this.fps = 0;
+				this.fps_lastframe = 0;
+				this.fps_lasttick = 0;
+			}
+			Game.get_tick = function () {
+				return new Date().getTime();
+			};
+			Game.prototype.start = function () {
+				this.tick = Game.get_tick();
+			};
+			Game.prototype.update_fps = function () {
+				var frame_difference = this.frame - this.fps_lastframe;
+				if (frame_difference > this.target_fps) {
+					this.fps = ~~((frame_difference / (this.tick - this.fps_lasttick)) * 1000);
+					this.fps_lastframe = this.frame;
+					this.fps_lasttick = this.tick;
+				}
+			};
+			Game.prototype.update_slice = function () {
+				var tick = Game.get_tick();
+				this.slice = tick - this.tick;
+				this.tick = tick;
+			};
+
+			function SmartImage(src, callback) {
+				var that = this;
+				this.img = new Image();
+				this.src = src;		
+				this.callback = callback;
+				this.img.onload = function () {
+					that.callback(that.img);
+					SmartImage.just_loaded(that);
+				};
+				SmartImage.image_list.push(this);
+			}
+			SmartImage.image_list = [];
+			SmartImage.loaded = 0;
+			SmartImage.just_loaded = function(smart_image) {
+				SmartImage.loaded += 1;
+				if (SmartImage.loaded === SmartImage.image_list.length) {
+					SmartImage.callback();
+				}
+			};
+			SmartImage.loadAll = function(callback) {
+				SmartImage.callback = callback;
+				for (var i = 0; i < SmartImage.image_list.length; i++) {
+					SmartImage.image_list[i].img.src = SmartImage.image_list[i].src;
+				}
+			}
+			
+			function Layer(url, sprites) {
+				var that = this;
+				this.url = url;
+				this.width = 0;
+				this.height = 0;
+				this.x = 0;
+				this.y = 0;
+				this.sprites = sprites ? sprites : 1;
+				this.img = new SmartImage(url, function(img) {
+					that.width = ~~(img.width / that.sprites);
+					that.height = img.height;
+				});
+			}
+			Layer.prototype.drawOn = function(context, sprite) {
+				// drawImage seems to be faster with larger images than putImageData
+				// double bitwise not for fast floor
+				this.x = ~~this.x;
+				this.y = ~~this.y;
+				sprite = sprite ? sprite : 0;
+				context.drawImage(this.img.img, this.width * sprite, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+			};
+			Layer.prototype.draw_other = function(context, sprite, x, y) {
+				sprite = sprite ? sprite: 0;
+				context.drawImage(this.img.img, this.width * sprite, 0, this.width, this.height, x, y, this.width, this.height);
+			};
+			
+			function View(canvas_id, width, height) {
+				this.canvas = document.getElementById(canvas_id);
+				this.ctx = this.canvas.getContext('2d');
+				this.width = this.canvas.width; //$(this.canvas).attr('width');
+				this.height = this.canvas.height; //$(this.canvas).attr('height');
+				this.bg = new Layer("images/mountains_distant.jpg");
+				this.fg = new Layer("images/mountains_near.png");
+				this.valley_depth = 0;
+				this.tx = this.width * .5;
+				this.ty = this.height * .5;
+				this.target = {x: this.width * .5, y: this.height * .5};
+				this.terrain = [];
+				this.terrain_resolution = 80;
+			}
+			View.prototype.follow = function(target) {
+				this.target = target;
+			};
+			View.prototype.update_position = function () {
+				this.tx += (this.target.x - this.tx) * .005 * game.slice;
+				this.ty += (this.target.y - this.ty) * .005 * game.slice;
+				var x_per = this.tx / this.fg.width;
+				var y_abs = this.ty - this.valley_depth;
+				this.fg.x = (this.width - this.fg.width) * x_per;
+				this.fg.y = this.height - this.fg.height - y_abs;
+				this.bg.x = (this.width - this.bg.width) * x_per;
+				this.bg.y = this.height - this.bg.height - y_abs * .2;
+			}
+			View.prototype.render = function () {
+				this.bg.drawOn(this.ctx);
+				this.fg.drawOn(this.ctx);
+				
+				if (debug) {
+					game.update_fps();
+					this.ctx.fillText("fps: " + game.fps + ", slice: " + game.slice, 10, 20);
+					this.ctx.beginPath();
+					this.ctx.moveTo(this.terrain[0].x + this.fg.x, this.terrain[0].y + this.fg.y);
+					for (var i = 1; i < this.terrain.length; i++) {
+						this.ctx.lineTo(this.terrain[i].x + this.fg.x, this.terrain[i].y + this.fg.y);
+					}
+					this.ctx.stroke();
+					for (var i = 0; i < this.terrain.length; i++) {
+						physics.circle(this.terrain[i].x + this.fg.x, this.terrain[i].y + this.fg.y, 3, 0);
+					}
+				}
+			};
+			View.prototype.plot_terrain = function () {
+				var canvas = document.createElement('canvas'),
+					ctx,
+					image;
+				canvas.width = this.fg.width;
+				canvas.height = this.fg.height;
+				ctx = canvas.getContext('2d');
+				
+				this.fg.drawOn(ctx);
+				image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+				var resolution = (image.width - 1) / this.terrain_resolution;
+				for (var x = 0; x < image.width; x += resolution) {
+					var int_x = ~~x;
+					for (var y = 0; y < image.height; y++) {
+						var pixel_i = (y * image.width + int_x) * 4;
+						var alpha = image.data[pixel_i + 3];
+						if (alpha > 0) {
+							this.terrain.push({x: int_x, y: y + 2});
+							if (y + 2 > this.valley_depth) {
+								this.valley_depth = y + 2;
+							}
+							y = image.height;
+						}
+					}
+				}
+
+				var poly_bd = new b2BodyDef();				
+				poly_bd.position.Set(0, 0);
+
+				for (var i = 0; i < this.terrain.length - 1; i++) {
+					var poly_sh = new b2PolyDef();
+					poly_sh.vertexCount = 4;
+					poly_sh.vertices[0].Set(this.terrain[i].x, this.terrain[i].y);
+					poly_sh.vertices[1].Set(this.terrain[i + 1].x, this.terrain[i + 1].y);
+					poly_sh.vertices[2].Set(this.terrain[i + 1].x, canvas.height);
+					poly_sh.vertices[3].Set(this.terrain[i].x, canvas.height);
+					poly_sh.restitution = 0.2;
+					poly_sh.friction = 1.0;
+					poly_bd.AddShape(poly_sh);
+				}
+				
+				/*
+				var box_sh = new b2BoxDef();
+				box_sh.extents.Set(5, 500);
+				box_sh.position = new b2Vec2(10, -500);
+				box_sh.restitution = 0.2;
+				poly_bd.AddShape(box_sh);
+				
+				box_sh = new b2BoxDef();
+				box_sh.extents.Set(5, 500);
+				box_sh.position = new b2Vec2(canvas.width - 10, -500);
+				box_sh.restitution = 0.2;
+				poly_bd.AddShape(box_sh);
+				*/
+				
+				this.body = physics.world.CreateBody(poly_bd);			
+				
+			};
+			
+			function Player() {
+				this.x = 900;
+				this.y = -300;
+				this.sprite = new Layer("images/max_sprite.png", 4);
+				this.radius = 8;
+				this.flipped = false;
+				this.flying = false;
+				this.fuel = 1.0;
+				
+				var circle = new b2CircleDef();
+				circle.density = 0.25;
+				circle.restitution = -0.1;
+				circle.radius = this.radius;
+				circle.friction = 1.0;
+				
+				var body = new b2BodyDef();
+				body.AddShape(circle);
+				body.position.Set(this.x, this.y);
+				body.angularDamping = 0.7;
+				body.linearDamping = 0.01;
+				body.allowSleep = false;
+				
+				this.body = physics.world.CreateBody(body);
+			}
+			Player.prototype.walk = function(dx) {
+				if (this.flying) {
+					var v = this.body.GetLinearVelocity();
+					v.Add(new b2Vec2(dx * .05, 0));
+				}
+				var av = this.body.GetAngularVelocity();
+				this.body.SetAngularVelocity(av + dx);
+				this.flipped = Boolean(dx < 0);
+			};
+			Player.prototype.jump = function(power) {
+				this.body.ApplyImpulse(new b2Vec2(0, -power), this.body.GetCenterPosition());
+			};
+			Player.prototype.fly = function(power) {
+				if (power > 0 && this.fuel > 0) {
+					this.body.ApplyForce(new b2Vec2(0, -power), this.body.GetCenterPosition());
+					this.fuel -= 0.0005 * game.slice;
+					this.flying = true;
+				}
+				else {
+					this.flying = false;
+					if (power === 0 && this.fuel < 1.0) {
+						this.fuel += 0.0005 * game.slice;
+					}
+				}
+			};
+			Player.prototype.keyboardInput = function(kb) {
+				var force = new b2Vec2(0, 0);
+				if (kb.up && !kb.down) {
+					
+				}
+				else if (kb.down && !kb.up) {
+					//this.y += .3 * game.slice;
+				}
+				if (kb.left && !kb.right) {
+					this.walk(-50);
+				}
+				else if (kb.right && !kb.left) {
+					this.walk(50);
+				}
+				if (kb.space) {
+					var on_ground = false;
+					var contact = this.body.GetContactList();
+					while (!on_ground && contact) {
+						if (contact.other === view.body) {
+							on_ground = true;
+						}
+						contact = contact.next;
+					}
+					if (on_ground) {
+						this.jump(2000);
+					}
+				}
+				if (kb.up) {
+					this.fly(20000);
+				}
+				else {
+					this.fly(0);
+				}
+			};
+			Player.prototype.checkBounds = function () {
+				return;
+			};
+			Player.prototype.render = function () {
+				this.x = this.body.m_position.x;
+				this.y = this.body.m_position.y;
+
+				this.sprite.x = view.fg.x + this.x - this.sprite.width * .5;
+				this.sprite.y = view.fg.y + this.y - (this.sprite.height - this.radius);
+				
+				var sprite;
+				if (!this.flipped && !this.flying)
+					sprite = 0;
+				else if (this.flying && !this.flipped)
+					sprite = 1;
+				else if (this.flipped && this.flying)
+					sprite = 2;
+				else
+					sprite = 3;
+				
+				this.current_sprite = sprite;
+				this.sprite.drawOn(view.ctx, sprite);
+				
+				if (debug) {
+					physics.circle(this.x + view.fg.x, this.y + view.fg.y, this.radius, this.body.GetRotation());
+				}
+			};
+
+			
+			function Keyboard() {
+				var that = this;
+				
+				this.map = {'38':'up', '39':'right', '40':'down', '37':'left', '87':'up', '68':'right', '83':'down', '65':'left', '32':'space'};
+			
+				this.up = false;
+				this.down = false;
+				this.left = false;
+				this.right = false;
+				this.space = false;
+				
+				$(document).keydown(function (event) {
+					if (that.map[event.which]) {
+						that[that.map[event.which]] = true;
+					}
+					else if (debug) {
+						console.log("Keycode: " + event.which);
+					}
+					return false;
+				});
+				
+				$(document).keyup(function (event) {
+					if (that.map[event.which]) {
+						that[that.map[event.which]] = false;
+					}
+				});	
+			}
+			
+			function Physics() {
+				var world = new b2AABB();
+				world.minVertex.Set(0, -500);
+				world.maxVertex.Set(2000, 1000);
+				var gravity = new b2Vec2(0, 300);
+				var doSleep = true;
+				this.world = new b2World(world, gravity, doSleep);
+			}
+			Physics.prototype.step = function () {
+				this.world.Step(Math.min(1 / 20, game.slice / 600), 3);
+			}
+			Physics.prototype.circle = function(x, y, r, angle) {
+				view.ctx.beginPath();
+				view.ctx.arc(x, y, r, 0, Math.PI * 2, true);
+				view.ctx.moveTo(x, y);
+				view.ctx.lineTo(x + r * Math.cos(angle), y + r * Math.sin(angle));
+				view.ctx.stroke();
+			}
+			
+			function Hud() {
+				this.x = 10;
+				this.y = 30;		
+				this.width = 100;
+				this.height = 10;
+			}
+			Hud.prototype.render = function () {
+				var bar_w = (this.width - 4) * player.fuel;
+				view.ctx.strokeRect(this.x, this.y, this.width, this.height);
+				view.ctx.fillRect(this.x + 2, this.y + 2, bar_w, this.height - 4);
+			}
+			
+			function Npc(data) {
+				console.log ("new npc with data " + JSON.stringify(data));
+				this.data = data;
+				this.sprite = player.sprite;
+				Npc.list.push(this);
+			}
+			Npc.list = [];
+			Npc.render_all = function() {
+				for (var i = 0; i < Npc.list.length; i++) {
+					Npc.list[i].render();
+				}
+			}
+			Npc.get_by_id = function(id) {
+				for (var i in Npc.list) {
+					if (Npc.list[i].data.id === id) {
+						return Npc.list[i];
+					}
+				}
+			};
+			Npc.remove = function(npc) {
+				var i = Npc.list.indexOf(npc);
+				if(i !== -1) {
+					Npc.list.splice(i, 1);
+				}
+			}
+			Npc.prototype.render = function() {
+				this.sprite.draw_other(view.ctx, this.data.sprite, this.data.x + view.fg.x, this.data.y + view.fg.y);
+			};
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			// DEMO
+			// This is what communicates with the NodeJS server
+			// (using the MiddleWare Socket.IO)
+			
+			Player.prototype.sync = function() {
+				network.send(JSON.stringify({
+					type: 'player sync',
+					data: {
+						id: this.client_id,
+						x: this.sprite.x - view.fg.x,
+						y: this.sprite.y - view.fg.y,
+						dx: 0,
+						dy: 0,
+						sprite: this.current_sprite
+					}
+				}));
+			};
+			
+			function Network() {
+				io.setPath('/client/');
+				this.socket = new io.Socket(null, {port: 3000});
+				this.socket.connect();
+				this.socket.on('message', this.receive);
+			}
+			Network.prototype.send = function (data) {
+				this.socket.send(data);
+			};
+			Network.prototype.receive = function (data) {
+				var obj = JSON.parse(data);
+				if (obj.type === 'player update') {
+					var npc = Npc.get_by_id(obj.data.id);
+					if (npc) {
+						npc.data = obj.data;
+					}
+					else {
+						var new_npc = new Npc(obj.data);
+					}
+				}
+				else if (obj.type === 'game summary') {
+					player.client_id = obj.new_player_id;
+					for (var i in obj.data) {
+						var new_player = new Npc(obj.data[i]);
+					}
+				}
+				else if (obj.type === 'player disconnected') {
+					var dead_npc = Npc.get_by_id(obj.id);
+					Npc.remove(dead_npc);
+				}
+			};
+			
+			// END DEMO
+			// Isn't it amazing that that's all it takes for reliable persistent communication?
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			var game = new Game();
+			var physics = new Physics();
+			var view = new View("view");
+			var player = new Player();
+			var keyboard = new Keyboard();
+			var hud = new Hud();
+			var network = new Network();
+			
+			var debug = true;
+			
+			function init() {
+				view.plot_terrain();
+				view.follow(player);
+				
+				game.start();
+				setInterval(main, 1000 / game.target_fps);
+			}
+			
+			function main() {
+				// Calculate the "time slice" we're manipulating this loop
+				game.update_slice();
+				
+				// Handle player input
+				player.keyboardInput(keyboard);
+				
+				// Update game object positions
+				player.checkBounds();
+				physics.step();
+				
+				// Update view
+				view.update_position();
+				
+				// Draw
+				view.render();
+				Npc.render_all();
+				player.render();
+				hud.render();
+				
+				// Sync with the server
+				player.sync();
+				
+				// Just finished a frame
+				game.frame += 1;
+			}
+		
+		
+			SmartImage.loadAll(function () {
+				init();
+			});
+			
+		</script>
+	</body>
+</html>
