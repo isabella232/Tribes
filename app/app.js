@@ -30,6 +30,7 @@ exports = module.exports = (function() {
     server.set('public', server.set('app root') + '/public');
     server.set('port', options.port);
     server.set('host', options.host);
+    server.set('labs', options.labs);
     
     // Middleware
     
