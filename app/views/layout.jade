@@ -1,0 +1,38 @@
+!!! 5
+html
+  head
+    title Starsiege Tribes: 2D
+
+    link(rel="stylesheet", href="styles/game.css", type="text/css")
+      
+  body!= body
+    
+    script
+        var debug = true;
+
+    // jQuery
+    script(src="//ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js")
+
+    // socket.io
+    script(src='/socket.io/socket.io.js')
+    
+    // for ie
+    script(src="/js/json.js")
+    
+    // Box2D
+    script(src='/js/box2d_jq_complete.js')
+    
+    // This Game
+    script(src="/js/tribes.config.js")
+    script(src="/js/tribes.game.js")
+    script(src="/js/tribes.smartimage.js")
+    script(src="/js/tribes.layer.js")
+    script(src="/js/tribes.view.js")
+    script(src="/js/tribes.player.js")
+    script(src="/js/tribes.keyboard.js")
+    script(src="/js/tribes.physics.js")        
+    script(src="/js/tribes.hud.js")
+    script(src="/js/tribes.npc.js")
+    script(src="/js/tribes.network.js")
+    script(src="/js/tribes.main.js")
+    
