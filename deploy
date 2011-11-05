@@ -214,9 +214,6 @@ deploy() {
   run "ln -sfn $path/source $path/current"
   test $? -eq 0 || abort symlink failed
 
-  #copy upstart script
-  run "cp $path/source/deployment/upstart/*.conf /etc/init/"
-
   # deploy log
   run "cd $path/source && \
       echo \`git rev-parse --short HEAD\` \
