@@ -3,9 +3,14 @@ html
   head
     title Starsiege Tribes: 2D
 
+    link(rel="stylesheet", href=labs_url+"/styles/labs_bar.css", type="text/css")
     link(rel="stylesheet", href="styles/game.css", type="text/css")
+
       
-  body!= body
+  body
+    #labs_bar 
+        a(href=labs_url) back to Skookum Digital Works Labs
+    != body
     
     script
         var debug = true;

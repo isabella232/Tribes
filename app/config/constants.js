@@ -11,16 +11,18 @@ exports = module.exports = function(env) {
       this.reqTimeout = 30000;
       this.sessionKey = 'tribe$';
       this.port = 3300;
-      this.host = "http://localhost:"+this.port+"/";
+      this.labs = 'http://localhost';
+      this.host = this.labs+':'+this.port;
       this.dumpExceptions = true;
       this.showStack = true;
       this.errorToHtml = true;
       this.redis = { host: 'localhost', port: 6379, db: 'tribes' };
-      //this.mongo = { db: 'mongodb://localhost/pianos'}
-      //this.mysql = { host: 'localhost', port: 3306, user: 'root', password: 'root', database: 'pianos' }
+      this.mongo = { db: 'mongodb://localhost/tribes'};
+      
     },
     production: function() {
-      this.host = "http://173.230.134.69:"+this.port+"/";
+      this.labs = "http://173.230.134.69";
+      this.host = this.labs+':'+this.port;
     }
   };
   

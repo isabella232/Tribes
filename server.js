@@ -1,7 +1,7 @@
 var options = {
   port: 3300,
   watched_files: undefined,
-  default_start_type: 'single'
+  default_start_type: 'simple'
 };
 
 var cluster = require('cluster');
