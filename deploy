@@ -175,7 +175,7 @@ setup() {
   log running setup
   log cloning $repo
   log copying upstart conf
-  run "sudo cp $path/source/deployment/*.conf /etc/init/"
+  run "sudo cp $path/source/deployment/upstart/*.conf /etc/init/"
   log setup complete
 }
 
