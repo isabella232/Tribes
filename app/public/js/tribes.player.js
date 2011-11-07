@@ -1,11 +1,19 @@
 function Player() {
 	this.x = 900;
 	this.y = -300;
-	this.sprite = new Layer(config.library + "images/max_sprite.png", 4);
+	// this.sprite = new Layer(config.library + "images/max_sprite.png", 4);
+	this.sprite = new Layer(config.library + "images/character_sprite.png", 14);
 	this.radius = 8;
 	this.flipped = false;
 	this.flying = false;
+	this.on_ground = false;
 	this.fuel = 1.0;
+
+	this.running_right = [1,2,3,4,5,6];
+	this.right_frame = 0;
+	this.running_left = [7,8,9,10,11,12];
+	this.left_frame = 0;
+
 	
 	var circle = new b2CircleDef();
 	circle.density = 0.25;
@@ -39,11 +47,19 @@ Player.prototype.fly = function(power) {
 		this.body.ApplyForce(new b2Vec2(0, -power), this.body.GetCenterPosition());
 		this.fuel -= 0.0005 * game.slice;
 		this.flying = true;
+		this.on_ground = false;
 	}
 	else {
 		this.flying = false;
 		if (power === 0 && this.fuel < 1.0) {
 			this.fuel += 0.0005 * game.slice;
+		}
+		var contact = this.body.GetContactList();
+		while (!this.on_ground && contact) {
+			if (contact.other === view.body) {
+				this.on_ground = true;
+			}
+			contact = contact.next;
 		}
 	}
 };
@@ -62,11 +78,11 @@ Player.prototype.keyboardInput = function(kb) {
 		this.walk(50);
 	}
 	if (kb.space) {
-		var on_ground = false;
+		this.on_ground = false;
 		var contact = this.body.GetContactList();
-		while (!on_ground && contact) {
+		while (!this.on_ground && contact) {
 			if (contact.other === view.body) {
-				on_ground = true;
+				this.on_ground = true;
 			}
 			contact = contact.next;
 		}
@@ -90,16 +106,33 @@ Player.prototype.render = function () {
 
 	this.sprite.x = view.fg.x + this.x - this.sprite.width * 0.5;
 	this.sprite.y = view.fg.y + this.y - (this.sprite.height - this.radius);
-	
-	var sprite;
-	if (!this.flipped && !this.flying)
+
+	var sprite,
+			velocity = this.body.GetAngularVelocity();
+
+	// running right
+	if (!this.flipped && this.on_ground) {
+		this.right_frame = (this.right_frame >= 5.85) ? 0 : this.right_frame + 0.1;
+		sprite = (velocity > 3) ? this.running_right[Math.floor(this.right_frame)] : 0 ;
+	}
+
+	// flying right
+	else if (!this.on_ground && !this.flipped) {
 		sprite = 0;
-	else if (this.flying && !this.flipped)
-		sprite = 1;
-	else if (this.flipped && this.flying)
-		sprite = 2;
-	else
-		sprite = 3;
+		this.right_frame = this.left_frame = 0;
+	}
+
+	// flying left
+	else if (this.flipped && !this.on_ground) {
+		sprite = 13;
+		this.right_frame = this.left_frame = 0;
+	}
+
+	// running left
+	else {
+		this.left_frame = (this.left_frame >= 5.85) ? 0 : this.left_frame + 0.1;
+		sprite = (velocity < -3) ? this.running_left[Math.floor(this.left_frame)] : 13 ;
+	}
 	
 	this.current_sprite = sprite;
 	this.sprite.drawOn(view.ctx, sprite);

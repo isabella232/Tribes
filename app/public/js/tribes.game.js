@@ -1,5 +1,5 @@
 function Game() {
-	this.target_fps = 77;	// 80 seems to be the max Chrome can handle
+	this.target_fps = 60;	// 80 seems to be the max Chrome can handle
 	this.frame = 0;
 	this.slice = 0;		// Current time slice
 	this.tick = 0;
