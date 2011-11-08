@@ -1,7 +1,7 @@
 function Player(options) {
   options = options || {};
 
-  this.x = options.x || 900;
+  this.x = options.x || Math.floor(Math.random()*600)+300;
   this.y = options.y || -300;
 
   this.char_num = options.char_num || 0;
@@ -127,7 +127,7 @@ Player.prototype.render = function () {
   // running right
   if (!this.flipped && this.on_ground) {
     this.right_frame = (this.right_frame >= last_frame) ? 0 : this.right_frame + 0.1;
-    sprite = (velocity > 3) ? this.character.running_right[Math.floor(this.right_frame)] : this.character.standing_right ;
+    sprite = (velocity > 3) ? this.character.running_right[~~this.right_frame] : this.character.standing_right ;
   }
 
   // flying right
@@ -145,7 +145,7 @@ Player.prototype.render = function () {
   // running left
   else {
     this.left_frame = (this.left_frame >= last_frame) ? 0 : this.left_frame + 0.1;
-    sprite = (velocity < -3) ? this.character.running_left[Math.floor(this.left_frame)] : this.character.standing_left ;
+    sprite = (velocity < -3) ? this.character.running_left[~~this.left_frame] : this.character.standing_left ;
   }
   
   this.current_sprite = sprite;
